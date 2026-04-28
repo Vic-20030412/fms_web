@@ -418,6 +418,35 @@ function sanitizeName(name) {
   return (name || "FMS測驗").trim().replace(/[\\/:*?"<>|]/g, "_") || "FMS測驗";
 }
 
+function resetForNextTest(statusText = "已準備下一位受測者") {
+  recording = false;
+  rows = [];
+  recordStart = 0;
+  sampleCount = 0;
+  painReported = false;
+  manualOverrideScore = null;
+  movementIndex = 0;
+  currentSide = "left";
+  rotaryPhase = "same";
+  sessionResults = {};
+  sessionSideResults = {};
+  recordBtn.textContent = "開始";
+  scoreTextEl.textContent = "-";
+  reasonTextEl.textContent = "";
+  testNameInput.value = "";
+  if (downloadDialog.open) downloadDialog.close();
+  if (pendingDownloadUrl) {
+    URL.revokeObjectURL(pendingDownloadUrl);
+    pendingDownloadUrl = null;
+  }
+  pendingExcelBlob = null;
+  pendingExcelFileName = "";
+  cloudUploadBtn.disabled = false;
+  cloudUploadBtn.textContent = "上傳到 Google Drive";
+  setStatus(statusText);
+  updateUi();
+}
+
 function blobToBase64(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -454,6 +483,7 @@ async function uploadExcelToGoogleDrive() {
     downloadInfo.textContent = `已上傳到 Google Drive：${data.fileName}`;
     setStatus("已上傳到 Google Drive");
     cloudUploadBtn.textContent = "已上傳到 Google Drive";
+    setTimeout(() => resetForNextTest("已上傳，請開始下一位受測者"), 900);
   } catch (error) {
     console.warn("Retrying Google Drive upload without CORS response.", error);
     await fetch(GOOGLE_UPLOAD_URL, {
@@ -464,6 +494,7 @@ async function uploadExcelToGoogleDrive() {
     downloadInfo.textContent = "已送出上傳請求。若手機沒有顯示下載，也請到 Google Drive 資料夾確認檔案。";
     setStatus("已送出 Google Drive 上傳");
     cloudUploadBtn.textContent = "已送出上傳";
+    setTimeout(() => resetForNextTest("已送出上傳，請開始下一位受測者"), 900);
   }
 }
 
@@ -850,13 +881,7 @@ cloudUploadBtn.addEventListener("click", async () => {
   }
 });
 finishBtn.addEventListener("click", () => {
-  if (pendingDownloadUrl) {
-    URL.revokeObjectURL(pendingDownloadUrl);
-    pendingDownloadUrl = null;
-  }
-  pendingExcelBlob = null;
-  pendingExcelFileName = "";
-  setStatus("測驗完成");
+  resetForNextTest("測驗完成，請開始下一位受測者");
 });
 
 renderMovementButtons();
