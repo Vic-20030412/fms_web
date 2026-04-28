@@ -1,0 +1,10 @@
+{
+  "name": "FMS 功能性動作篩檢",
+  "short_name": "FMS 篩檢",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#101418",
+  "theme_color": "#101418",
+  "orientation": "any",
+  "icons": []
+}
