@@ -107,6 +107,24 @@ footer {
   align-items: center;
 }
 
+.zoom-control {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #11181e;
+  border: 1px solid #2c3842;
+  border-radius: 8px;
+}
+
+.zoom-control input {
+  width: 100%;
+  accent-color: #0ca678;
+}
+
+.zoom-control input:disabled {
+  opacity: 0.45;
+}
+
 button {
   min-height: 44px;
   touch-action: manipulation;

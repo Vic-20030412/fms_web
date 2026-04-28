@@ -26,6 +26,8 @@ const downloadInfo = document.getElementById("downloadInfo");
 const cloudUploadBtn = document.getElementById("cloudUploadBtn");
 const finishBtn = document.getElementById("finishBtn");
 const switchCameraBtn = document.getElementById("switchCameraBtn");
+const zoomSlider = document.getElementById("zoomSlider");
+const zoomText = document.getElementById("zoomText");
 const GOOGLE_UPLOAD_URL = "https://script.google.com/macros/s/AKfycbxQ9cKAp--d4CV_Vf0NxVXVaz2t8MBpxKSPaBDtvTmsH14HIaWeCTIrEBaJ8ScIT5cEsg/exec";
 
 const movements = [
@@ -61,6 +63,7 @@ let cameraStream = null;
 let pendingDownloadUrl = null;
 let pendingExcelBlob = null;
 let pendingExcelFileName = "";
+let desiredZoom = 1;
 
 function currentMovement() {
   return movements[movementIndex];
@@ -68,6 +71,46 @@ function currentMovement() {
 
 function setStatus(text) {
   statusEl.textContent = text;
+}
+
+function updateZoomUi(value, disabled = false, label = "") {
+  zoomSlider.disabled = disabled;
+  zoomSlider.value = String(value);
+  zoomText.textContent = label || `${Number(value).toFixed(1)}x`;
+}
+
+async function applyCameraZoom(value) {
+  const track = cameraStream?.getVideoTracks()[0];
+  if (!track) return;
+  const capabilities = track.getCapabilities?.() || {};
+  if (!("zoom" in capabilities)) {
+    updateZoomUi(1, true, "不支援");
+    return;
+  }
+  const min = capabilities.zoom.min ?? 1;
+  const max = capabilities.zoom.max ?? 1;
+  const zoom = Math.min(max, Math.max(min, Number(value)));
+  desiredZoom = zoom;
+  await track.applyConstraints({ advanced: [{ zoom }] });
+  updateZoomUi(zoom, false);
+}
+
+async function configureCameraZoom() {
+  const track = cameraStream?.getVideoTracks()[0];
+  const capabilities = track?.getCapabilities?.() || {};
+  if (!track || !("zoom" in capabilities)) {
+    desiredZoom = 1;
+    updateZoomUi(1, true, "不支援");
+    return;
+  }
+  const min = capabilities.zoom.min ?? 1;
+  const max = capabilities.zoom.max ?? 1;
+  const step = capabilities.zoom.step || 0.1;
+  zoomSlider.min = String(min);
+  zoomSlider.max = String(max);
+  zoomSlider.step = String(step);
+  desiredZoom = Math.min(max, Math.max(min, desiredZoom || min));
+  await applyCameraZoom(desiredZoom);
 }
 
 function dist(a, b) {
@@ -803,6 +846,7 @@ async function openCamera() {
   video.srcObject = cameraStream;
   await video.play();
   video.style.transform = cameraFacingMode === "user" ? "scaleX(-1)" : "none";
+  await configureCameraZoom();
   cameraReady = true;
   setStatus(cameraFacingMode === "user" ? "前鏡頭已啟動" : "後鏡頭已啟動");
 }
@@ -839,6 +883,14 @@ switchCameraBtn.addEventListener("click", async () => {
     console.error(error);
     cameraFacingMode = "user";
     setStatus("切換鏡頭失敗，請確認瀏覽器相機權限");
+  }
+});
+zoomSlider.addEventListener("input", async () => {
+  try {
+    await applyCameraZoom(zoomSlider.value);
+  } catch (error) {
+    console.error(error);
+    setStatus("鏡頭遠近調整失敗");
   }
 });
 sideButtons.addEventListener("click", (event) => {

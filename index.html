@@ -37,6 +37,11 @@
         <button id="switchCameraBtn">切換鏡頭</button>
       </div>
 
+      <label class="zoom-control" id="zoomControl">
+        <span>鏡頭遠近：<strong id="zoomText">不支援</strong></span>
+        <input id="zoomSlider" type="range" min="1" max="1" step="0.1" value="1" disabled>
+      </label>
+
       <div class="side-buttons" id="sideButtons">
         <button data-side="left">左側</button>
         <button data-side="right">右側</button>
@@ -88,6 +93,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-  <script src="./app.js?v=20260428-next-person-after-upload"></script>
+  <script src="./app.js?v=20260428-camera-zoom"></script>
 </body>
 </html>
