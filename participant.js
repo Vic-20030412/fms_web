@@ -48,14 +48,24 @@ function jsonp(action, params = {}) {
   });
 }
 
-function postFormNoCors(fields) {
+async function postFormNoCors(fields, timeoutMs = 12000) {
   const formData = new FormData();
   Object.entries(fields).forEach(([key, value]) => formData.append(key, value));
-  return fetch(GOOGLE_UPLOAD_URL, {
-    method: "POST",
-    body: formData,
-    mode: "no-cors",
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    await fetch(GOOGLE_UPLOAD_URL, {
+      method: "POST",
+      body: formData,
+      mode: "no-cors",
+      keepalive: false,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error.name !== "AbortError") throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function wait(ms) {

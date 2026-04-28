@@ -124,14 +124,24 @@ function jsonp(action, params = {}) {
   });
 }
 
-function postFormNoCors(fields) {
+async function postFormNoCors(fields, timeoutMs = 12000) {
   const formData = new FormData();
   Object.entries(fields).forEach(([key, value]) => formData.append(key, value));
-  return fetch(GOOGLE_UPLOAD_URL, {
-    method: "POST",
-    body: formData,
-    mode: "no-cors",
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    await fetch(GOOGLE_UPLOAD_URL, {
+      method: "POST",
+      body: formData,
+      mode: "no-cors",
+      keepalive: false,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error.name !== "AbortError") throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function wait(ms) {
@@ -678,9 +688,11 @@ async function uploadExcelToGoogleDrive() {
     return;
   }
   cloudUploadBtn.disabled = true;
-  cloudUploadBtn.textContent = "上傳中...";
-  setStatus(`正在上傳到 Google Drive：${cloudFolderName}`);
+  cloudUploadBtn.textContent = "準備上傳...";
+  setStatus("正在準備 Excel 檔案...");
   const base64 = await blobToBase64(pendingExcelBlob);
+  cloudUploadBtn.textContent = "上傳中...";
+  setStatus(`正在送出到 Google Drive：${cloudFolderName}`);
   try {
     await postFormNoCors({
       action: "upload",
@@ -690,6 +702,7 @@ async function uploadExcelToGoogleDrive() {
       mimeType: pendingExcelBlob.type,
       base64,
     });
+    cloudUploadBtn.textContent = "確認中...";
     const confirmed = await waitForUploadedFile(cloudFolderName, selectedSubject?.name || "", pendingExcelFileName);
     if (!confirmed) throw new Error("Google Drive 尚未查到 Excel 檔案");
     downloadInfo.textContent = `已確認上傳到 Google Drive：${cloudFolderName} / ${selectedSubject?.name || "未分類"}`;
@@ -1129,8 +1142,8 @@ cloudUploadBtn.addEventListener("click", async () => {
     console.error(error);
     cloudUploadBtn.disabled = false;
     cloudUploadBtn.textContent = "重新上傳到 Google Drive";
-    downloadInfo.textContent = "上傳失敗，請確認網路或 Google Apps Script 權限，仍可先下載 Excel 備份。";
-    setStatus("Google Drive 上傳失敗");
+    downloadInfo.textContent = "尚未確認 Google Drive 收到檔案，請先到雲端資料夾看是否有檔案；沒有的話請按重新上傳。";
+    setStatus("尚未確認上傳成功");
   }
 });
 finishBtn.addEventListener("click", () => {
