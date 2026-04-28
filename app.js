@@ -99,6 +99,7 @@ function jsonp(action, params = {}) {
     const url = new URL(GOOGLE_UPLOAD_URL);
     url.searchParams.set("action", action);
     url.searchParams.set("callback", callback);
+    url.searchParams.set("_", String(Date.now()));
     Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
     const script = document.createElement("script");
     const timer = setTimeout(() => {
@@ -121,6 +122,31 @@ function jsonp(action, params = {}) {
     script.src = url.toString();
     document.body.appendChild(script);
   });
+}
+
+function postFormNoCors(fields) {
+  const formData = new FormData();
+  Object.entries(fields).forEach(([key, value]) => formData.append(key, value));
+  return fetch(GOOGLE_UPLOAD_URL, {
+    method: "POST",
+    body: formData,
+    mode: "no-cors",
+  });
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForUploadedFile(folderName, subjectName, fileName) {
+  for (let attempt = 1; attempt <= 10; attempt += 1) {
+    const data = await jsonp("listFiles", { folderName, subjectName });
+    const found = (data.files || []).some((file) => file.name === fileName);
+    if (found) return true;
+    setStatus(`正在確認 Excel 是否已上傳...${attempt}/10`);
+    await wait(1500);
+  }
+  return false;
 }
 
 function renderSubjects(subjects) {
@@ -655,23 +681,20 @@ async function uploadExcelToGoogleDrive() {
   cloudUploadBtn.textContent = "上傳中...";
   setStatus(`正在上傳到 Google Drive：${cloudFolderName}`);
   const base64 = await blobToBase64(pendingExcelBlob);
-  const formData = new FormData();
-  formData.append("action", "upload");
-  formData.append("folderName", cloudFolderName);
-  formData.append("subjectName", selectedSubject?.name || "");
-  formData.append("fileName", pendingExcelFileName);
-  formData.append("mimeType", pendingExcelBlob.type);
-  formData.append("base64", base64);
-
   try {
-    await fetch(GOOGLE_UPLOAD_URL, {
-      method: "POST",
-      body: formData,
-      mode: "no-cors",
+    await postFormNoCors({
+      action: "upload",
+      folderName: cloudFolderName,
+      subjectName: selectedSubject?.name || "",
+      fileName: pendingExcelFileName,
+      mimeType: pendingExcelBlob.type,
+      base64,
     });
-    downloadInfo.textContent = `已送出上傳請求，檔案會放在 Google Drive 的「${cloudFolderName}」資料夾。`;
-    setStatus(`已送出上傳：${cloudFolderName}`);
-    cloudUploadBtn.textContent = "已送出上傳";
+    const confirmed = await waitForUploadedFile(cloudFolderName, selectedSubject?.name || "", pendingExcelFileName);
+    if (!confirmed) throw new Error("Google Drive 尚未查到 Excel 檔案");
+    downloadInfo.textContent = `已確認上傳到 Google Drive：${cloudFolderName} / ${selectedSubject?.name || "未分類"}`;
+    setStatus("Excel 已成功上傳到 Google Drive");
+    cloudUploadBtn.textContent = "已成功上傳";
     setTimeout(() => resetForNextTest("已上傳，請開始下一位受測者"), 900);
   } catch (error) {
     cloudUploadBtn.disabled = false;

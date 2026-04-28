@@ -23,6 +23,7 @@ function jsonp(action, params = {}) {
     const url = new URL(GOOGLE_UPLOAD_URL);
     url.searchParams.set("action", action);
     url.searchParams.set("callback", callback);
+    url.searchParams.set("_", String(Date.now()));
     Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
     const script = document.createElement("script");
     const timer = setTimeout(() => {
@@ -45,6 +46,31 @@ function jsonp(action, params = {}) {
     script.src = url.toString();
     document.body.appendChild(script);
   });
+}
+
+function postFormNoCors(fields) {
+  const formData = new FormData();
+  Object.entries(fields).forEach(([key, value]) => formData.append(key, value));
+  return fetch(GOOGLE_UPLOAD_URL, {
+    method: "POST",
+    body: formData,
+    mode: "no-cors",
+  });
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForSubject(folderName, subjectName) {
+  for (let attempt = 1; attempt <= 8; attempt += 1) {
+    const data = await jsonp("listSubjects", { folderName });
+    const found = (data.subjects || []).some((subject) => subject.name === subjectName);
+    if (found) return true;
+    setStatus(`正在確認資料是否上傳成功...${attempt}/8`);
+    await wait(1200);
+  }
+  return false;
 }
 
 async function loadSessions() {
@@ -77,26 +103,23 @@ form.addEventListener("submit", async (event) => {
   const folderName = sessionSelect.value;
   const subjectName = sanitizeName(nameInput.value);
   if (!folderName || !subjectName) return;
-  const formData = new FormData();
-  formData.append("action", "createSubject");
-  formData.append("folderName", folderName);
-  formData.append("subjectName", subjectName);
-  formData.append("gender", genderInput.value);
-  formData.append("age", ageInput.value);
-  formData.append("exerciseHabit", exerciseInput.value);
-
   setStatus("正在送出...");
   try {
-    await fetch(GOOGLE_UPLOAD_URL, {
-      method: "POST",
-      body: formData,
-      mode: "no-cors",
+    await postFormNoCors({
+      action: "createSubject",
+      folderName,
+      subjectName,
+      gender: genderInput.value,
+      age: ageInput.value,
+      exerciseHabit: exerciseInput.value,
     });
-    setStatus("已送出，請告知檢測人員更新名單");
+    const confirmed = await waitForSubject(folderName, subjectName);
+    if (!confirmed) throw new Error("Google Drive 尚未查到這位受測者");
+    setStatus("基本資料已成功上傳，請告知檢測人員更新名單");
     form.reset();
   } catch (error) {
     console.error(error);
-    setStatus("送出失敗，請確認網路後再試一次");
+    setStatus("送出後尚未確認成功，請再按一次送出或請檢測人員更新名單確認");
   }
 });
 
