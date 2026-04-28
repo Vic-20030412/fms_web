@@ -202,6 +202,17 @@ dialog::backdrop {
   font-weight: 700;
 }
 
+.cloud-upload {
+  min-height: 48px;
+  background: #1d4ed8;
+  border-color: #3b82f6;
+  font-weight: 700;
+}
+
+.cloud-upload:disabled {
+  opacity: 0.65;
+}
+
 @media (max-width: 860px) {
   .app {
     grid-template-columns: 1fr;

@@ -23,8 +23,10 @@ const saveBtn = document.getElementById("saveBtn");
 const downloadDialog = document.getElementById("downloadDialog");
 const downloadLink = document.getElementById("downloadLink");
 const downloadInfo = document.getElementById("downloadInfo");
+const cloudUploadBtn = document.getElementById("cloudUploadBtn");
 const finishBtn = document.getElementById("finishBtn");
 const switchCameraBtn = document.getElementById("switchCameraBtn");
+const GOOGLE_UPLOAD_URL = "https://script.google.com/macros/s/AKfycbxQ9cKAp--d4CV_Vf0NxVXVaz2t8MBpxKSPaBDtvTmsH14HIaWeCTIrEBaJ8ScIT5cEsg/exec";
 
 const movements = [
   { id: "deep_squat", name: "深蹲", bilateral: false },
@@ -57,6 +59,8 @@ let processing = false;
 let cameraFacingMode = "environment";
 let cameraStream = null;
 let pendingDownloadUrl = null;
+let pendingExcelBlob = null;
+let pendingExcelFileName = "";
 
 function currentMovement() {
   return movements[movementIndex];
@@ -414,6 +418,55 @@ function sanitizeName(name) {
   return (name || "FMS測驗").trim().replace(/[\\/:*?"<>|]/g, "_") || "FMS測驗";
 }
 
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const value = String(reader.result || "");
+      resolve(value.includes(",") ? value.split(",")[1] : value);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function uploadExcelToGoogleDrive() {
+  if (!pendingExcelBlob || !pendingExcelFileName) {
+    setStatus("目前沒有可上傳的 Excel");
+    return;
+  }
+  cloudUploadBtn.disabled = true;
+  cloudUploadBtn.textContent = "上傳中...";
+  setStatus("正在上傳到 Google Drive...");
+  const base64 = await blobToBase64(pendingExcelBlob);
+  const formData = new FormData();
+  formData.append("fileName", pendingExcelFileName);
+  formData.append("mimeType", pendingExcelBlob.type);
+  formData.append("base64", base64);
+
+  try {
+    const response = await fetch(GOOGLE_UPLOAD_URL, {
+      method: "POST",
+      body: formData,
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.message || "Google Drive 上傳失敗");
+    downloadInfo.textContent = `已上傳到 Google Drive：${data.fileName}`;
+    setStatus("已上傳到 Google Drive");
+    cloudUploadBtn.textContent = "已上傳到 Google Drive";
+  } catch (error) {
+    console.warn("Retrying Google Drive upload without CORS response.", error);
+    await fetch(GOOGLE_UPLOAD_URL, {
+      method: "POST",
+      body: formData,
+      mode: "no-cors",
+    });
+    downloadInfo.textContent = "已送出上傳請求。若手機沒有顯示下載，也請到 Google Drive 資料夾確認檔案。";
+    setStatus("已送出 Google Drive 上傳");
+    cloudUploadBtn.textContent = "已送出上傳";
+  }
+}
+
 function createRadarChartDataUrl(scoreRows, total) {
   const size = 900;
   const canvasEl = document.createElement("canvas");
@@ -580,6 +633,10 @@ async function saveWorkbook(testName) {
   const fileName = `${sanitizeName(testName)}_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.xlsx`;
   const data = await workbook.xlsx.writeBuffer();
   const blob = new Blob([data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  pendingExcelBlob = blob;
+  pendingExcelFileName = fileName;
+  cloudUploadBtn.disabled = false;
+  cloudUploadBtn.textContent = "上傳到 Google Drive";
   if ("showDirectoryPicker" in window) {
     const dir = await window.showDirectoryPicker();
     const handle = await dir.getFileHandle(fileName, { create: true });
@@ -594,7 +651,7 @@ async function saveWorkbook(testName) {
     downloadLink.href = url;
     downloadLink.download = fileName;
     downloadLink.textContent = `下載 ${fileName}`;
-    downloadInfo.textContent = "請點下面的下載按鈕。手機下載後通常會出現在「檔案」App 的「下載項目」。";
+    downloadInfo.textContent = "可以下載到手機，也可以直接上傳到 Google Drive。";
     downloadDialog.showModal();
     setStatus("Excel 已產生，請按下載");
   }
@@ -781,11 +838,24 @@ saveBtn.addEventListener("click", async (event) => {
 downloadLink.addEventListener("click", () => {
   setStatus("下載已送出，請到手機的下載項目查看");
 });
+cloudUploadBtn.addEventListener("click", async () => {
+  try {
+    await uploadExcelToGoogleDrive();
+  } catch (error) {
+    console.error(error);
+    cloudUploadBtn.disabled = false;
+    cloudUploadBtn.textContent = "重新上傳到 Google Drive";
+    downloadInfo.textContent = "上傳失敗，請確認網路或 Google Apps Script 權限，仍可先下載 Excel 備份。";
+    setStatus("Google Drive 上傳失敗");
+  }
+});
 finishBtn.addEventListener("click", () => {
   if (pendingDownloadUrl) {
     URL.revokeObjectURL(pendingDownloadUrl);
     pendingDownloadUrl = null;
   }
+  pendingExcelBlob = null;
+  pendingExcelFileName = "";
   setStatus("測驗完成");
 });
 
