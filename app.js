@@ -976,12 +976,8 @@ function drawResults(results) {
   const width = canvas.width;
   const height = canvas.height;
   ctx.clearRect(0, 0, width, height);
-  ctx.save();
-  ctx.scale(-1, 1);
-  ctx.translate(-width, 0);
   drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, { color: "#4ade80", lineWidth: 3 });
   drawLandmarks(ctx, results.poseLandmarks, { color: "#fbbf24", lineWidth: 1, radius: 3 });
-  ctx.restore();
 }
 
 function onResults(results) {
@@ -1041,7 +1037,7 @@ async function openCamera() {
   });
   video.srcObject = cameraStream;
   await video.play();
-  video.style.transform = cameraFacingMode === "user" ? "scaleX(-1)" : "none";
+  video.style.transform = "none";
   await configureCameraZoom();
   cameraReady = true;
   setStatus(cameraFacingMode === "user" ? "前鏡頭已啟動" : "後鏡頭已啟動");
@@ -1155,9 +1151,6 @@ updateFolderUi();
 updateSubjectUi();
 loadSubjects();
 updateUi();
-if (!cloudFolderName) {
-  setTimeout(() => folderDialog.showModal(), 300);
-}
 startCamera().catch((error) => {
   console.error(error);
   setStatus("無法啟動相機，請確認瀏覽器權限與 HTTPS/localhost");

@@ -47,10 +47,6 @@ textarea {
   object-fit: contain;
 }
 
-#camera {
-  transform: scaleX(-1);
-}
-
 #overlay {
   pointer-events: none;
 }
@@ -408,4 +404,51 @@ dialog::backdrop {
     border-left: 1px solid #2c3842;
     border-top: 0;
   }
+}
+
+.entry-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.entry-card {
+  width: min(520px, 100%);
+  display: grid;
+  gap: 24px;
+  padding: 24px;
+  background: #182027;
+  border: 1px solid #2c3842;
+  border-radius: 8px;
+}
+
+.entry-actions {
+  display: grid;
+  gap: 12px;
+}
+
+.entry-button,
+.form-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 14px;
+  border: 1px solid #3a4954;
+  border-radius: 8px;
+  background: #26323b;
+  color: #f2f5f7;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.entry-button.primary {
+  background: #087f5b;
+  border-color: #0ca678;
+}
+
+.form-link {
+  min-height: 44px;
 }

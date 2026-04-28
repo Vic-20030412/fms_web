@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101418">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="FMS 篩檢">
+  <title>FMS 檢測者介面</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="app">
+    <section class="stage">
+      <video id="camera" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+    </section>
+
+    <aside class="panel">
+      <header>
+        <h1>FMS 功能性動作篩檢</h1>
+        <p id="status">準備完成</p>
+        <a class="participant-link" href="./index.html">回到首頁</a>
+      </header>
+
+      <div class="folder-bar">
+        <span>目前資料夾：<strong id="folderNameText">未設定</strong></span>
+        <button id="changeFolderBtn">更換</button>
+      </div>
+
+      <section class="subject-panel">
+        <div class="subject-header">
+          <span>目前受測者：<strong id="subjectNameText">未選擇</strong></span>
+          <button id="refreshSubjectsBtn">更新</button>
+        </div>
+        <a id="participantLink" class="participant-link" href="./participant.html" target="_blank" rel="noopener">開啟基本資料填寫頁</a>
+        <div id="subjectList" class="subject-list"></div>
+      </section>
+
+      <div class="current">
+        <div>目前動作：<strong id="movementName">深蹲</strong></div>
+        <div id="sideRow">目前側別：<strong id="sideName">左側</strong></div>
+        <div id="rotaryRow" hidden>旋轉測驗：<strong id="rotaryPhase">同側手腳伸展</strong></div>
+        <div>FMS 分數：<strong id="scoreText">-</strong></div>
+        <div class="reason" id="reasonText"></div>
+      </div>
+
+      <div class="controls">
+        <button id="recordBtn" class="primary">開始</button>
+        <button id="painBtn">疼痛</button>
+        <button id="switchCameraBtn">切換鏡頭</button>
+      </div>
+
+      <label class="zoom-control" id="zoomControl">
+        <span>鏡頭遠近：<strong id="zoomText">不支援</strong></span>
+        <input id="zoomSlider" type="range" min="1" max="1" step="0.1" value="1" disabled>
+      </label>
+
+      <div class="side-buttons" id="sideButtons">
+        <button data-side="left">左側</button>
+        <button data-side="right">右側</button>
+      </div>
+
+      <div class="manual">
+        <span>人工分數</span>
+        <button data-score="3">3</button>
+        <button data-score="2">2</button>
+        <button data-score="1">1</button>
+      </div>
+
+      <div class="movement-list" id="movementList"></div>
+
+      <footer>
+        <div>已完成：<span id="completedText">0/7</span></div>
+        <div>樣本數：<span id="samplesText">0</span></div>
+        <div>實測 FPS：<span id="fpsText">0.0</span></div>
+      </footer>
+    </aside>
+  </main>
+
+  <dialog id="folderDialog">
+    <form method="dialog" class="dialog-card">
+      <h2>建立或選擇檢測名稱</h2>
+      <p>可以建立新的檢測名稱，也可以取消後先查看受測者名單。</p>
+      <label>
+        資料夾名稱
+        <input id="folderNameInput" autocomplete="off" placeholder="例如：籃球隊_0428">
+      </label>
+      <div class="dialog-actions">
+        <button value="cancel">取消</button>
+        <button id="folderStartBtn" value="start" class="primary">建立並進入</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="saveDialog">
+    <form method="dialog" class="dialog-card">
+      <h2>儲存測驗結果</h2>
+      <label>
+        測驗名稱
+        <input id="testNameInput" autocomplete="off" placeholder="例如：王小明_初測">
+      </label>
+      <div class="dialog-actions">
+        <button value="cancel">取消</button>
+        <button id="saveBtn" value="save" class="primary">儲存 Excel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="downloadDialog">
+    <form method="dialog" class="dialog-card">
+      <h2>Excel 已產生</h2>
+      <p id="downloadInfo">請按下面按鈕下載檔案。</p>
+      <a id="downloadLink" class="download-link" download>下載 Excel</a>
+      <button id="cloudUploadBtn" type="button" class="cloud-upload">上傳到 Google Drive</button>
+      <div class="dialog-actions">
+        <button id="finishBtn" value="finish" class="primary">完成</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script src="./app.js?v=20260428-role-entry"></script>
+</body>
+</html>
