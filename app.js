@@ -420,8 +420,9 @@ function createRadarChartDataUrl(scoreRows, total) {
   canvasEl.width = size;
   canvasEl.height = size;
   const chartCtx = canvasEl.getContext("2d");
-  const center = size / 2;
-  const radius = 270;
+  const centerX = size / 2;
+  const centerY = 500;
+  const radius = 250;
   const maxScore = 3;
   const labels = scoreRows.map((row) => row.動作名稱);
   const scores = scoreRows.map((row) => Number(row.最後分數) || 0);
@@ -431,17 +432,17 @@ function createRadarChartDataUrl(scoreRows, total) {
   chartCtx.fillStyle = "#111827";
   chartCtx.font = "700 34px -apple-system, BlinkMacSystemFont, 'PingFang TC', sans-serif";
   chartCtx.textAlign = "center";
-  chartCtx.fillText("FMS 七項分數雷達圖", center, 72);
+  chartCtx.fillText("FMS 七項分數雷達圖", centerX, 64);
   chartCtx.font = "24px -apple-system, BlinkMacSystemFont, 'PingFang TC', sans-serif";
-  chartCtx.fillText(`總分：${total} / 21`, center, 112);
+  chartCtx.fillText(`總分：${total} / 21`, centerX, 104);
 
   for (let level = 1; level <= maxScore; level += 1) {
     const levelRadius = radius * (level / maxScore);
     chartCtx.beginPath();
     labels.forEach((_, index) => {
       const angle = -Math.PI / 2 + index * 2 * Math.PI / labels.length;
-      const x = center + Math.cos(angle) * levelRadius;
-      const y = center + Math.sin(angle) * levelRadius;
+      const x = centerX + Math.cos(angle) * levelRadius;
+      const y = centerY + Math.sin(angle) * levelRadius;
       if (index === 0) chartCtx.moveTo(x, y);
       else chartCtx.lineTo(x, y);
     });
@@ -453,12 +454,12 @@ function createRadarChartDataUrl(scoreRows, total) {
 
   labels.forEach((label, index) => {
     const angle = -Math.PI / 2 + index * 2 * Math.PI / labels.length;
-    const axisX = center + Math.cos(angle) * radius;
-    const axisY = center + Math.sin(angle) * radius;
-    const labelX = center + Math.cos(angle) * (radius + 88);
-    const labelY = center + Math.sin(angle) * (radius + 72);
+    const axisX = centerX + Math.cos(angle) * radius;
+    const axisY = centerY + Math.sin(angle) * radius;
+    const labelX = centerX + Math.cos(angle) * (radius + 86);
+    const labelY = centerY + Math.sin(angle) * (radius + 66);
     chartCtx.beginPath();
-    chartCtx.moveTo(center, center);
+    chartCtx.moveTo(centerX, centerY);
     chartCtx.lineTo(axisX, axisY);
     chartCtx.strokeStyle = "#e5e7eb";
     chartCtx.lineWidth = 1;
@@ -466,7 +467,7 @@ function createRadarChartDataUrl(scoreRows, total) {
 
     chartCtx.fillStyle = "#111827";
     chartCtx.font = "22px -apple-system, BlinkMacSystemFont, 'PingFang TC', sans-serif";
-    chartCtx.textAlign = labelX < center - 20 ? "right" : labelX > center + 20 ? "left" : "center";
+    chartCtx.textAlign = labelX < centerX - 20 ? "right" : labelX > centerX + 20 ? "left" : "center";
     chartCtx.fillText(label, labelX, labelY);
     chartCtx.font = "700 24px -apple-system, BlinkMacSystemFont, 'PingFang TC', sans-serif";
     chartCtx.fillText(`${scores[index]}分`, labelX, labelY + 30);
@@ -476,8 +477,8 @@ function createRadarChartDataUrl(scoreRows, total) {
   scores.forEach((score, index) => {
     const angle = -Math.PI / 2 + index * 2 * Math.PI / scores.length;
     const pointRadius = radius * (score / maxScore);
-    const x = center + Math.cos(angle) * pointRadius;
-    const y = center + Math.sin(angle) * pointRadius;
+    const x = centerX + Math.cos(angle) * pointRadius;
+    const y = centerY + Math.sin(angle) * pointRadius;
     if (index === 0) chartCtx.moveTo(x, y);
     else chartCtx.lineTo(x, y);
   });
@@ -491,8 +492,8 @@ function createRadarChartDataUrl(scoreRows, total) {
   scores.forEach((score, index) => {
     const angle = -Math.PI / 2 + index * 2 * Math.PI / scores.length;
     const pointRadius = radius * (score / maxScore);
-    const x = center + Math.cos(angle) * pointRadius;
-    const y = center + Math.sin(angle) * pointRadius;
+    const x = centerX + Math.cos(angle) * pointRadius;
+    const y = centerY + Math.sin(angle) * pointRadius;
     chartCtx.beginPath();
     chartCtx.arc(x, y, 7, 0, 2 * Math.PI);
     chartCtx.fillStyle = "#087f5b";
