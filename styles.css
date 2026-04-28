@@ -75,13 +75,27 @@ p {
 }
 
 .current,
-footer {
+footer,
+.folder-bar {
   display: grid;
   gap: 7px;
   padding: 12px;
   background: #11181e;
   border: 1px solid #2c3842;
   border-radius: 8px;
+}
+
+.folder-bar {
+  grid-template-columns: minmax(0, 1fr) 72px;
+  align-items: center;
+}
+
+.folder-bar span {
+  overflow-wrap: anywhere;
+}
+
+.folder-bar button {
+  min-height: 36px;
 }
 
 .reason {

@@ -17,6 +17,11 @@ const movementList = document.getElementById("movementList");
 const completedText = document.getElementById("completedText");
 const samplesText = document.getElementById("samplesText");
 const fpsText = document.getElementById("fpsText");
+const folderNameText = document.getElementById("folderNameText");
+const changeFolderBtn = document.getElementById("changeFolderBtn");
+const folderDialog = document.getElementById("folderDialog");
+const folderNameInput = document.getElementById("folderNameInput");
+const folderStartBtn = document.getElementById("folderStartBtn");
 const saveDialog = document.getElementById("saveDialog");
 const testNameInput = document.getElementById("testNameInput");
 const saveBtn = document.getElementById("saveBtn");
@@ -64,6 +69,7 @@ let pendingDownloadUrl = null;
 let pendingExcelBlob = null;
 let pendingExcelFileName = "";
 let desiredZoom = 1;
+let cloudFolderName = localStorage.getItem("fmsCloudFolderName") || "";
 
 function currentMovement() {
   return movements[movementIndex];
@@ -71,6 +77,36 @@ function currentMovement() {
 
 function setStatus(text) {
   statusEl.textContent = text;
+}
+
+function updateFolderUi() {
+  folderNameText.textContent = cloudFolderName || "未設定";
+}
+
+async function createCloudFolder(folderName) {
+  const formData = new FormData();
+  formData.append("action", "createFolder");
+  formData.append("folderName", folderName);
+  await fetch(GOOGLE_UPLOAD_URL, {
+    method: "POST",
+    body: formData,
+    mode: "no-cors",
+  });
+}
+
+async function enterCloudFolder(folderName) {
+  const nextName = sanitizeName(folderName);
+  cloudFolderName = nextName;
+  localStorage.setItem("fmsCloudFolderName", nextName);
+  updateFolderUi();
+  folderDialog.close();
+  setStatus(`目前資料夾：${nextName}`);
+  try {
+    await createCloudFolder(nextName);
+  } catch (error) {
+    console.warn("Cloud folder creation request failed.", error);
+    setStatus(`已選擇資料夾：${nextName}`);
+  }
 }
 
 function updateZoomUi(value, disabled = false, label = "") {
@@ -507,37 +543,36 @@ async function uploadExcelToGoogleDrive() {
     setStatus("目前沒有可上傳的 Excel");
     return;
   }
+  if (!cloudFolderName) {
+    folderDialog.showModal();
+    setStatus("請先建立或選擇測驗資料夾");
+    return;
+  }
   cloudUploadBtn.disabled = true;
   cloudUploadBtn.textContent = "上傳中...";
-  setStatus("正在上傳到 Google Drive...");
+  setStatus(`正在上傳到 Google Drive：${cloudFolderName}`);
   const base64 = await blobToBase64(pendingExcelBlob);
   const formData = new FormData();
+  formData.append("action", "upload");
+  formData.append("folderName", cloudFolderName);
   formData.append("fileName", pendingExcelFileName);
   formData.append("mimeType", pendingExcelBlob.type);
   formData.append("base64", base64);
 
   try {
-    const response = await fetch(GOOGLE_UPLOAD_URL, {
-      method: "POST",
-      body: formData,
-    });
-    const data = await response.json();
-    if (!data.success) throw new Error(data.message || "Google Drive 上傳失敗");
-    downloadInfo.textContent = `已上傳到 Google Drive：${data.fileName}`;
-    setStatus("已上傳到 Google Drive");
-    cloudUploadBtn.textContent = "已上傳到 Google Drive";
-    setTimeout(() => resetForNextTest("已上傳，請開始下一位受測者"), 900);
-  } catch (error) {
-    console.warn("Retrying Google Drive upload without CORS response.", error);
     await fetch(GOOGLE_UPLOAD_URL, {
       method: "POST",
       body: formData,
       mode: "no-cors",
     });
-    downloadInfo.textContent = "已送出上傳請求。若手機沒有顯示下載，也請到 Google Drive 資料夾確認檔案。";
-    setStatus("已送出 Google Drive 上傳");
+    downloadInfo.textContent = `已送出上傳請求，檔案會放在 Google Drive 的「${cloudFolderName}」資料夾。`;
+    setStatus(`已送出上傳：${cloudFolderName}`);
     cloudUploadBtn.textContent = "已送出上傳";
-    setTimeout(() => resetForNextTest("已送出上傳，請開始下一位受測者"), 900);
+    setTimeout(() => resetForNextTest("已上傳，請開始下一位受測者"), 900);
+  } catch (error) {
+    cloudUploadBtn.disabled = false;
+    cloudUploadBtn.textContent = "重新上傳到 Google Drive";
+    throw error;
   }
 }
 
@@ -640,6 +675,7 @@ async function saveWorkbook(testName) {
     const item = sessionResults[movement.id];
     total += item.final_score;
     rowsOut.push({
+      測驗資料夾: cloudFolderName || "未設定",
       測驗名稱: testName,
       動作名稱: item.movement_name,
       最後分數: item.final_score,
@@ -655,13 +691,14 @@ async function saveWorkbook(testName) {
       FMS總分: "",
     });
   }
-  rowsOut.push({ 測驗名稱: testName, 動作名稱: "總分", 原因: "七個 FMS 動作分數加總", FMS總分: total });
+  rowsOut.push({ 測驗資料夾: cloudFolderName || "未設定", 測驗名稱: testName, 動作名稱: "總分", 原因: "七個 FMS 動作分數加總", FMS總分: total });
   const scoreRows = rowsOut.slice(0, movements.length);
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "FMS 功能性動作篩檢";
   workbook.created = new Date();
   const worksheet = workbook.addWorksheet("FMS分數");
   worksheet.columns = [
+    { header: "測驗資料夾", key: "測驗資料夾", width: 22 },
     { header: "測驗名稱", key: "測驗名稱", width: 22 },
     { header: "動作名稱", key: "動作名稱", width: 18 },
     { header: "最後分數", key: "最後分數", width: 10 },
@@ -688,13 +725,14 @@ async function saveWorkbook(testName) {
   radarSheet.getCell("A1").value = "FMS 七項分數雷達圖";
   radarSheet.getCell("A1").font = { bold: true, size: 18 };
   radarSheet.getCell("A2").value = `測驗名稱：${testName}`;
-  radarSheet.getCell("A3").value = `總分：${total} / 21`;
+  radarSheet.getCell("A3").value = `測驗資料夾：${cloudFolderName || "未設定"}`;
+  radarSheet.getCell("A4").value = `總分：${total} / 21`;
   radarSheet.addRow([]);
   radarSheet.addRow(["動作名稱", "分數"]);
   scoreRows.forEach((row) => radarSheet.addRow([row.動作名稱, row.最後分數]));
   radarSheet.getColumn(1).width = 22;
   radarSheet.getColumn(2).width = 10;
-  radarSheet.getRow(5).font = { bold: true };
+  radarSheet.getRow(6).font = { bold: true };
   const radarImage = workbook.addImage({
     base64: createRadarChartDataUrl(scoreRows, total),
     extension: "png",
@@ -873,6 +911,21 @@ painBtn.addEventListener("click", () => {
   painReported = !painReported;
   updateUi();
 });
+changeFolderBtn.addEventListener("click", () => {
+  folderNameInput.value = cloudFolderName;
+  folderDialog.showModal();
+});
+folderStartBtn.addEventListener("click", async (event) => {
+  event.preventDefault();
+  folderStartBtn.disabled = true;
+  folderStartBtn.textContent = "建立中...";
+  try {
+    await enterCloudFolder(folderNameInput.value || "FMS測驗");
+  } finally {
+    folderStartBtn.disabled = false;
+    folderStartBtn.textContent = "建立並進入";
+  }
+});
 switchCameraBtn.addEventListener("click", async () => {
   cameraFacingMode = cameraFacingMode === "user" ? "environment" : "user";
   cameraReady = false;
@@ -937,7 +990,11 @@ finishBtn.addEventListener("click", () => {
 });
 
 renderMovementButtons();
+updateFolderUi();
 updateUi();
+if (!cloudFolderName) {
+  setTimeout(() => folderDialog.showModal(), 300);
+}
 startCamera().catch((error) => {
   console.error(error);
   setStatus("無法啟動相機，請確認瀏覽器權限與 HTTPS/localhost");

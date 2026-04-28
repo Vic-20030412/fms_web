@@ -23,6 +23,11 @@
         <p id="status">準備完成</p>
       </header>
 
+      <div class="folder-bar">
+        <span>目前資料夾：<strong id="folderNameText">未設定</strong></span>
+        <button id="changeFolderBtn">更換</button>
+      </div>
+
       <div class="current">
         <div>目前動作：<strong id="movementName">深蹲</strong></div>
         <div id="sideRow">目前側別：<strong id="sideName">左側</strong></div>
@@ -64,6 +69,20 @@
     </aside>
   </main>
 
+  <dialog id="folderDialog">
+    <form method="dialog" class="dialog-card">
+      <h2>建立測驗資料夾</h2>
+      <p>同一個資料夾底下測的結果，會一起上傳到 Google Drive 的同名子資料夾。</p>
+      <label>
+        資料夾名稱
+        <input id="folderNameInput" autocomplete="off" placeholder="例如：籃球隊_0428">
+      </label>
+      <div class="dialog-actions">
+        <button id="folderStartBtn" value="start" class="primary">建立並進入</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="saveDialog">
     <form method="dialog" class="dialog-card">
       <h2>儲存測驗結果</h2>
@@ -93,6 +112,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-  <script src="./app.js?v=20260428-camera-zoom"></script>
+  <script src="./app.js?v=20260428-cloud-folder"></script>
 </body>
 </html>
