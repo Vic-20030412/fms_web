@@ -19,6 +19,10 @@ const samplesText = document.getElementById("samplesText");
 const fpsText = document.getElementById("fpsText");
 const folderNameText = document.getElementById("folderNameText");
 const changeFolderBtn = document.getElementById("changeFolderBtn");
+const subjectNameText = document.getElementById("subjectNameText");
+const refreshSubjectsBtn = document.getElementById("refreshSubjectsBtn");
+const subjectList = document.getElementById("subjectList");
+const participantLink = document.getElementById("participantLink");
 const folderDialog = document.getElementById("folderDialog");
 const folderNameInput = document.getElementById("folderNameInput");
 const folderStartBtn = document.getElementById("folderStartBtn");
@@ -70,6 +74,7 @@ let pendingExcelBlob = null;
 let pendingExcelFileName = "";
 let desiredZoom = 1;
 let cloudFolderName = localStorage.getItem("fmsCloudFolderName") || "";
+let selectedSubject = JSON.parse(localStorage.getItem("fmsSelectedSubject") || "null");
 
 function currentMovement() {
   return movements[movementIndex];
@@ -81,6 +86,86 @@ function setStatus(text) {
 
 function updateFolderUi() {
   folderNameText.textContent = cloudFolderName || "未設定";
+  participantLink.href = cloudFolderName ? `./participant.html?folder=${encodeURIComponent(cloudFolderName)}` : "./participant.html";
+}
+
+function updateSubjectUi() {
+  subjectNameText.textContent = selectedSubject?.name || "未選擇";
+}
+
+function jsonp(action, params = {}) {
+  return new Promise((resolve, reject) => {
+    const callback = `fmsCallback_${Date.now()}_${Math.round(Math.random() * 100000)}`;
+    const url = new URL(GOOGLE_UPLOAD_URL);
+    url.searchParams.set("action", action);
+    url.searchParams.set("callback", callback);
+    Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
+    const script = document.createElement("script");
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error("讀取資料逾時"));
+    }, 12000);
+    function cleanup() {
+      clearTimeout(timer);
+      script.remove();
+      delete window[callback];
+    }
+    window[callback] = (data) => {
+      cleanup();
+      resolve(data);
+    };
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("讀取資料失敗"));
+    };
+    script.src = url.toString();
+    document.body.appendChild(script);
+  });
+}
+
+function renderSubjects(subjects) {
+  subjectList.innerHTML = "";
+  if (!subjects.length) {
+    const empty = document.createElement("div");
+    empty.className = "empty";
+    empty.textContent = "尚無受測者，請先請受測者填寫基本資料";
+    subjectList.appendChild(empty);
+    return;
+  }
+  subjects.forEach((subject) => {
+    const button = document.createElement("button");
+    button.textContent = subject.name;
+    button.classList.toggle("active", subject.name === selectedSubject?.name);
+    button.addEventListener("click", () => {
+      selectedSubject = subject;
+      localStorage.setItem("fmsSelectedSubject", JSON.stringify(subject));
+      updateSubjectUi();
+      renderSubjects(subjects);
+      setStatus(`已選擇受測者：${subject.name}`);
+    });
+    subjectList.appendChild(button);
+  });
+}
+
+async function loadSubjects() {
+  if (!cloudFolderName) {
+    renderSubjects([]);
+    return;
+  }
+  subjectList.innerHTML = '<div class="empty">讀取受測者名單中...</div>';
+  try {
+    const data = await jsonp("listSubjects", { folderName: cloudFolderName });
+    const subjects = data.subjects || [];
+    if (selectedSubject && !subjects.some((subject) => subject.name === selectedSubject.name)) {
+      selectedSubject = null;
+      localStorage.removeItem("fmsSelectedSubject");
+      updateSubjectUi();
+    }
+    renderSubjects(subjects);
+  } catch (error) {
+    console.error(error);
+    subjectList.innerHTML = '<div class="empty">名單讀取失敗，請稍後再更新</div>';
+  }
 }
 
 async function createCloudFolder(folderName) {
@@ -98,7 +183,10 @@ async function enterCloudFolder(folderName) {
   const nextName = sanitizeName(folderName);
   cloudFolderName = nextName;
   localStorage.setItem("fmsCloudFolderName", nextName);
+  selectedSubject = null;
+  localStorage.removeItem("fmsSelectedSubject");
   updateFolderUi();
+  updateSubjectUi();
   folderDialog.close();
   setStatus(`目前資料夾：${nextName}`);
   try {
@@ -107,6 +195,7 @@ async function enterCloudFolder(folderName) {
     console.warn("Cloud folder creation request failed.", error);
     setStatus(`已選擇資料夾：${nextName}`);
   }
+  loadSubjects();
 }
 
 function updateZoomUi(value, disabled = false, label = "") {
@@ -464,6 +553,7 @@ function stopRecording() {
   }
   if (Object.keys(sessionResults).length === movements.length) {
     setStatus("七個動作完成，請輸入測驗名稱");
+    testNameInput.value = selectedSubject?.name || "";
     saveDialog.showModal();
   } else if (movement.bilateral && !sessionResults[movement.id]) {
     currentSide = currentSide === "left" ? "right" : "left";
@@ -478,6 +568,15 @@ function stopRecording() {
 }
 
 function startRecording() {
+  if (!cloudFolderName) {
+    folderDialog.showModal();
+    setStatus("請先建立或選擇檢測名稱");
+    return;
+  }
+  if (!selectedSubject?.name) {
+    setStatus("請先從受測者名單選擇一位受測者");
+    return;
+  }
   recording = true;
   rows = [];
   recordStart = performance.now();
@@ -509,6 +608,8 @@ function resetForNextTest(statusText = "已準備下一位受測者") {
   rotaryPhase = "same";
   sessionResults = {};
   sessionSideResults = {};
+  selectedSubject = null;
+  localStorage.removeItem("fmsSelectedSubject");
   recordBtn.textContent = "開始";
   scoreTextEl.textContent = "-";
   reasonTextEl.textContent = "";
@@ -522,6 +623,8 @@ function resetForNextTest(statusText = "已準備下一位受測者") {
   pendingExcelFileName = "";
   cloudUploadBtn.disabled = false;
   cloudUploadBtn.textContent = "上傳到 Google Drive";
+  updateSubjectUi();
+  loadSubjects();
   setStatus(statusText);
   updateUi();
 }
@@ -555,6 +658,7 @@ async function uploadExcelToGoogleDrive() {
   const formData = new FormData();
   formData.append("action", "upload");
   formData.append("folderName", cloudFolderName);
+  formData.append("subjectName", selectedSubject?.name || "");
   formData.append("fileName", pendingExcelFileName);
   formData.append("mimeType", pendingExcelBlob.type);
   formData.append("base64", base64);
@@ -676,6 +780,10 @@ async function saveWorkbook(testName) {
     total += item.final_score;
     rowsOut.push({
       測驗資料夾: cloudFolderName || "未設定",
+      受測者姓名: selectedSubject?.name || testName,
+      性別: selectedSubject?.gender || "",
+      年齡: selectedSubject?.age || "",
+      運動習慣: selectedSubject?.exerciseHabit || "",
       測驗名稱: testName,
       動作名稱: item.movement_name,
       最後分數: item.final_score,
@@ -691,7 +799,17 @@ async function saveWorkbook(testName) {
       FMS總分: "",
     });
   }
-  rowsOut.push({ 測驗資料夾: cloudFolderName || "未設定", 測驗名稱: testName, 動作名稱: "總分", 原因: "七個 FMS 動作分數加總", FMS總分: total });
+  rowsOut.push({
+    測驗資料夾: cloudFolderName || "未設定",
+    受測者姓名: selectedSubject?.name || testName,
+    性別: selectedSubject?.gender || "",
+    年齡: selectedSubject?.age || "",
+    運動習慣: selectedSubject?.exerciseHabit || "",
+    測驗名稱: testName,
+    動作名稱: "總分",
+    原因: "七個 FMS 動作分數加總",
+    FMS總分: total,
+  });
   const scoreRows = rowsOut.slice(0, movements.length);
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "FMS 功能性動作篩檢";
@@ -699,6 +817,10 @@ async function saveWorkbook(testName) {
   const worksheet = workbook.addWorksheet("FMS分數");
   worksheet.columns = [
     { header: "測驗資料夾", key: "測驗資料夾", width: 22 },
+    { header: "受測者姓名", key: "受測者姓名", width: 16 },
+    { header: "性別", key: "性別", width: 8 },
+    { header: "年齡", key: "年齡", width: 8 },
+    { header: "運動習慣", key: "運動習慣", width: 28 },
     { header: "測驗名稱", key: "測驗名稱", width: 22 },
     { header: "動作名稱", key: "動作名稱", width: 18 },
     { header: "最後分數", key: "最後分數", width: 10 },
@@ -724,7 +846,7 @@ async function saveWorkbook(testName) {
   const radarSheet = workbook.addWorksheet("雷達圖");
   radarSheet.getCell("A1").value = "FMS 七項分數雷達圖";
   radarSheet.getCell("A1").font = { bold: true, size: 18 };
-  radarSheet.getCell("A2").value = `測驗名稱：${testName}`;
+  radarSheet.getCell("A2").value = `受測者：${selectedSubject?.name || testName}`;
   radarSheet.getCell("A3").value = `測驗資料夾：${cloudFolderName || "未設定"}`;
   radarSheet.getCell("A4").value = `總分：${total} / 21`;
   radarSheet.addRow([]);
@@ -911,6 +1033,9 @@ painBtn.addEventListener("click", () => {
   painReported = !painReported;
   updateUi();
 });
+refreshSubjectsBtn.addEventListener("click", () => {
+  loadSubjects();
+});
 changeFolderBtn.addEventListener("click", () => {
   folderNameInput.value = cloudFolderName;
   folderDialog.showModal();
@@ -961,7 +1086,7 @@ document.querySelector(".manual").addEventListener("click", (event) => {
 });
 saveBtn.addEventListener("click", async (event) => {
   event.preventDefault();
-  const testName = sanitizeName(testNameInput.value);
+  const testName = sanitizeName(testNameInput.value || selectedSubject?.name || "FMS測驗");
   saveDialog.close();
   try {
     await saveWorkbook(testName);
@@ -991,6 +1116,8 @@ finishBtn.addEventListener("click", () => {
 
 renderMovementButtons();
 updateFolderUi();
+updateSubjectUi();
+loadSubjects();
 updateUi();
 if (!cloudFolderName) {
   setTimeout(() => folderDialog.showModal(), 300);

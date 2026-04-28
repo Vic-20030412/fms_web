@@ -28,6 +28,15 @@
         <button id="changeFolderBtn">更換</button>
       </div>
 
+      <section class="subject-panel">
+        <div class="subject-header">
+          <span>目前受測者：<strong id="subjectNameText">未選擇</strong></span>
+          <button id="refreshSubjectsBtn">更新</button>
+        </div>
+        <a id="participantLink" class="participant-link" href="./participant.html" target="_blank" rel="noopener">開啟基本資料填寫頁</a>
+        <div id="subjectList" class="subject-list"></div>
+      </section>
+
       <div class="current">
         <div>目前動作：<strong id="movementName">深蹲</strong></div>
         <div id="sideRow">目前側別：<strong id="sideName">左側</strong></div>
@@ -112,6 +121,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-  <script src="./app.js?v=20260428-cloud-folder"></script>
+  <script src="./app.js?v=20260428-subject-flow"></script>
 </body>
 </html>

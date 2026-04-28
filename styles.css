@@ -18,7 +18,9 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -96,6 +98,53 @@ footer,
 
 .folder-bar button {
   min-height: 36px;
+}
+
+.subject-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  background: #11181e;
+  border: 1px solid #2c3842;
+  border-radius: 8px;
+}
+
+.subject-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  align-items: center;
+  gap: 8px;
+}
+
+.subject-header span {
+  overflow-wrap: anywhere;
+}
+
+.subject-header button {
+  min-height: 36px;
+}
+
+.participant-link {
+  color: #93c5fd;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.subject-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.subject-list button {
+  min-height: 40px;
+  padding: 0 8px;
+  overflow-wrap: anywhere;
+}
+
+.subject-list .empty {
+  grid-column: 1 / -1;
+  color: #f6d365;
 }
 
 .reason {
@@ -214,6 +263,50 @@ dialog::backdrop {
   border-radius: 8px;
   background: #11181e;
   color: #f2f5f7;
+}
+
+.form-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.form-card {
+  width: min(520px, 100%);
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+  background: #182027;
+  border: 1px solid #2c3842;
+  border-radius: 8px;
+}
+
+.form-card form,
+.form-card label {
+  display: grid;
+  gap: 10px;
+}
+
+.form-card form {
+  gap: 14px;
+}
+
+.form-card input,
+.form-card select,
+.form-card textarea {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid #3a4954;
+  border-radius: 8px;
+  background: #11181e;
+  color: #f2f5f7;
+}
+
+.form-card textarea {
+  resize: vertical;
 }
 
 .dialog-actions {

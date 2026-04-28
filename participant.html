@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101418">
+  <title>FMS 基本資料填寫</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="form-page">
+    <section class="form-card">
+      <header>
+        <h1>FMS 基本資料填寫</h1>
+        <p id="participantStatus">請先選擇檢測名稱</p>
+      </header>
+
+      <form id="participantForm">
+        <label>
+          檢測名稱
+          <select id="sessionSelect" required>
+            <option value="">載入中...</option>
+          </select>
+        </label>
+        <label>
+          姓名
+          <input id="participantName" autocomplete="name" required>
+        </label>
+        <label>
+          性別
+          <select id="participantGender" required>
+            <option value="">請選擇</option>
+            <option value="女">女</option>
+            <option value="男">男</option>
+            <option value="其他">其他</option>
+          </select>
+        </label>
+        <label>
+          年齡
+          <input id="participantAge" type="number" min="1" max="120" inputmode="numeric" required>
+        </label>
+        <label>
+          運動習慣
+          <textarea id="participantExercise" rows="4" placeholder="例如：每週重訓 2 次、籃球 1 次" required></textarea>
+        </label>
+        <button class="primary" type="submit">送出基本資料</button>
+      </form>
+    </section>
+  </main>
+
+  <script src="./participant.js?v=20260428-subject-flow"></script>
+</body>
+</html>
