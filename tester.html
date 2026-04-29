@@ -81,15 +81,24 @@
 
   <dialog id="folderDialog">
     <form method="dialog" class="dialog-card">
-      <h2>建立或選擇檢測名稱</h2>
-      <p>可以建立新的檢測名稱，也可以取消後先查看受測者名單。</p>
+      <h2>選擇檢測名稱</h2>
+      <p>可以選擇以前建立的檢測名稱，也可以新增一個檢測資料夾。</p>
       <label>
-        資料夾名稱
-        <input id="folderNameInput" autocomplete="off" placeholder="例如：籃球隊_0428">
+        選擇以前的檢測名稱
+        <select id="existingFolderSelect">
+          <option value="">載入中...</option>
+        </select>
       </label>
       <div class="dialog-actions">
         <button value="cancel">取消</button>
-        <button id="folderStartBtn" value="start" class="primary">建立並進入</button>
+        <button id="folderUseExistingBtn" value="use" class="primary">使用選取</button>
+      </div>
+      <label>
+        新增檢測名稱
+        <input id="folderNameInput" autocomplete="off" placeholder="例如：籃球隊_0428">
+      </label>
+      <div class="dialog-actions">
+        <button id="folderStartBtn" value="start" class="primary">新增資料夾</button>
       </div>
     </form>
   </dialog>
@@ -123,6 +132,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-  <script src="./app.js?v=20260428-role-entry"></script>
+  <script src="./app.js?v=20260428-folder-select-fix"></script>
 </body>
 </html>

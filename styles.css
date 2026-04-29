@@ -251,7 +251,8 @@ dialog::backdrop {
   gap: 8px;
 }
 
-.dialog-card input {
+.dialog-card input,
+.dialog-card select {
   width: 100%;
   min-height: 44px;
   padding: 0 12px;

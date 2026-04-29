@@ -26,6 +26,8 @@ const participantLink = document.getElementById("participantLink");
 const folderDialog = document.getElementById("folderDialog");
 const folderNameInput = document.getElementById("folderNameInput");
 const folderStartBtn = document.getElementById("folderStartBtn");
+const existingFolderSelect = document.getElementById("existingFolderSelect");
+const folderUseExistingBtn = document.getElementById("folderUseExistingBtn");
 const saveDialog = document.getElementById("saveDialog");
 const testNameInput = document.getElementById("testNameInput");
 const saveBtn = document.getElementById("saveBtn");
@@ -181,6 +183,28 @@ function renderSubjects(subjects) {
     });
     subjectList.appendChild(button);
   });
+}
+
+function renderCloudFolders(folders) {
+  existingFolderSelect.innerHTML = "";
+  if (!folders.length) {
+    existingFolderSelect.append(new Option("目前沒有既有檢測名稱", ""));
+    return;
+  }
+  existingFolderSelect.append(new Option("請選擇檢測名稱", ""));
+  folders.forEach((folder) => existingFolderSelect.append(new Option(folder.name, folder.name)));
+  if (cloudFolderName) existingFolderSelect.value = cloudFolderName;
+}
+
+async function loadCloudFolders() {
+  existingFolderSelect.innerHTML = '<option value="">載入中...</option>';
+  try {
+    const data = await jsonp("listFolders");
+    renderCloudFolders(data.folders || []);
+  } catch (error) {
+    console.error(error);
+    existingFolderSelect.innerHTML = '<option value="">載入失敗，可直接新增</option>';
+  }
 }
 
 async function loadSubjects() {
@@ -1069,8 +1093,17 @@ refreshSubjectsBtn.addEventListener("click", () => {
   loadSubjects();
 });
 changeFolderBtn.addEventListener("click", () => {
-  folderNameInput.value = cloudFolderName;
+  folderNameInput.value = "";
   folderDialog.showModal();
+  loadCloudFolders();
+});
+folderUseExistingBtn.addEventListener("click", async (event) => {
+  event.preventDefault();
+  if (!existingFolderSelect.value) {
+    setStatus("請先選擇一個檢測名稱");
+    return;
+  }
+  await enterCloudFolder(existingFolderSelect.value);
 });
 folderStartBtn.addEventListener("click", async (event) => {
   event.preventDefault();
@@ -1150,6 +1183,7 @@ renderMovementButtons();
 updateFolderUi();
 updateSubjectUi();
 loadSubjects();
+loadCloudFolders();
 updateUi();
 startCamera().catch((error) => {
   console.error(error);

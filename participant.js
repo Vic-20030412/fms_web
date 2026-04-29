@@ -3,6 +3,8 @@ const GOOGLE_UPLOAD_URL = "https://script.google.com/macros/s/AKfycbxQ9cKAp--d4C
 const statusEl = document.getElementById("participantStatus");
 const form = document.getElementById("participantForm");
 const sessionSelect = document.getElementById("sessionSelect");
+const manualSessionLabel = document.getElementById("manualSessionLabel");
+const manualSessionName = document.getElementById("manualSessionName");
 const nameInput = document.getElementById("participantName");
 const genderInput = document.getElementById("participantGender");
 const ageInput = document.getElementById("participantAge");
@@ -15,6 +17,18 @@ function setStatus(text) {
 
 function sanitizeName(name) {
   return String(name || "FMS測驗").trim().replace(/[\\/:*?"<>|]/g, "_") || "FMS測驗";
+}
+
+function enableManualSession(defaultName = "") {
+  sessionSelect.innerHTML = '<option value="__manual__">手動輸入檢測名稱</option>';
+  sessionSelect.value = "__manual__";
+  manualSessionLabel.hidden = false;
+  manualSessionName.required = true;
+  if (defaultName) manualSessionName.value = defaultName;
+}
+
+function selectedFolderName() {
+  return sessionSelect.value === "__manual__" ? sanitizeName(manualSessionName.value) : sessionSelect.value;
 }
 
 function jsonp(action, params = {}) {
@@ -84,15 +98,24 @@ async function waitForSubject(folderName, subjectName) {
 }
 
 async function loadSessions() {
+  const fallbackTimer = setTimeout(() => {
+    if (!sessionSelect.value) {
+      enableManualSession(initialFolder);
+      setStatus("檢測名稱載入較慢，可先手動輸入");
+    }
+  }, 3500);
   try {
     const data = await jsonp("listFolders");
+    clearTimeout(fallbackTimer);
     const folders = data.folders || [];
     sessionSelect.innerHTML = "";
     if (!folders.length) {
-      sessionSelect.innerHTML = '<option value="">目前沒有檢測名稱</option>';
-      setStatus("請先請檢測人員建立檢測名稱");
+      enableManualSession(initialFolder);
+      setStatus("沒有讀到檢測名稱，可手動輸入檢測人員建立的名稱");
       return;
     }
+    manualSessionLabel.hidden = true;
+    manualSessionName.required = false;
     sessionSelect.append(new Option("請選擇檢測名稱", ""));
     folders.forEach((folder) => {
       sessionSelect.append(new Option(folder.name, folder.name));
@@ -102,15 +125,16 @@ async function loadSessions() {
     }
     setStatus("請填寫基本資料");
   } catch (error) {
+    clearTimeout(fallbackTimer);
     console.error(error);
-    sessionSelect.innerHTML = '<option value="">載入失敗</option>';
-    setStatus("載入檢測名稱失敗，請稍後再試");
+    enableManualSession(initialFolder);
+    setStatus("載入檢測名稱失敗，請手動輸入檢測名稱");
   }
 }
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const folderName = sessionSelect.value;
+  const folderName = selectedFolderName();
   const subjectName = sanitizeName(nameInput.value);
   if (!folderName || !subjectName) return;
   setStatus("正在送出...");
