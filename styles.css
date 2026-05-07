@@ -252,14 +252,19 @@ dialog::backdrop {
 }
 
 .dialog-card input,
-.dialog-card select {
+.dialog-card select,
+.dialog-card textarea {
   width: 100%;
   min-height: 44px;
-  padding: 0 12px;
+  padding: 10px 12px;
   border: 1px solid #3a4954;
   border-radius: 8px;
   background: #11181e;
   color: #f2f5f7;
+}
+
+.dialog-card textarea {
+  resize: vertical;
 }
 
 .form-page {

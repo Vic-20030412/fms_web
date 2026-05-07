@@ -103,6 +103,22 @@
     </form>
   </dialog>
 
+
+  <dialog id="manualReasonDialog">
+    <form method="dialog" class="dialog-card">
+      <h2>人工評分評論</h2>
+      <p id="manualReasonPrompt">請輸入人工評分原因。</p>
+      <label>
+        評論
+        <textarea id="manualReasonInput" rows="4" placeholder="例如：髖關節點偵測不到，現場觀察膝蓋內夾明顯，因此給 2 分。"></textarea>
+      </label>
+      <div class="dialog-actions">
+        <button id="manualReasonCancelBtn" value="cancel">取消人工評分</button>
+        <button id="manualReasonSaveBtn" value="save" class="primary">儲存評論</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="saveDialog">
     <form method="dialog" class="dialog-card">
       <h2>儲存測驗結果</h2>
@@ -132,6 +148,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-  <script src="./app.js?v=20260428-folder-select-fix"></script>
+  <script src="./app.js?v=20260507-manual-reason"></script>
 </body>
 </html>

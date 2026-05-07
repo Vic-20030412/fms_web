@@ -28,6 +28,11 @@ const folderNameInput = document.getElementById("folderNameInput");
 const folderStartBtn = document.getElementById("folderStartBtn");
 const existingFolderSelect = document.getElementById("existingFolderSelect");
 const folderUseExistingBtn = document.getElementById("folderUseExistingBtn");
+const manualReasonDialog = document.getElementById("manualReasonDialog");
+const manualReasonPrompt = document.getElementById("manualReasonPrompt");
+const manualReasonInput = document.getElementById("manualReasonInput");
+const manualReasonCancelBtn = document.getElementById("manualReasonCancelBtn");
+const manualReasonSaveBtn = document.getElementById("manualReasonSaveBtn");
 const saveDialog = document.getElementById("saveDialog");
 const testNameInput = document.getElementById("testNameInput");
 const saveBtn = document.getElementById("saveBtn");
@@ -62,6 +67,8 @@ let measuredFps = 0;
 let lastFrameTime = performance.now();
 let painReported = false;
 let manualOverrideScore = null;
+let manualOverrideReason = "";
+let pendingManualScore = null;
 let movementIndex = 0;
 let currentSide = "left";
 let rotaryPhase = "same";
@@ -84,6 +91,25 @@ function currentMovement() {
 
 function setStatus(text) {
   statusEl.textContent = text;
+}
+
+function manualReasonText() {
+  if (manualOverrideScore === null) return "";
+  return manualOverrideReason || `人工覆寫為 ${manualOverrideScore} 分，檢測員未填寫評論`;
+}
+
+function showManualReasonDialog(score) {
+  pendingManualScore = score;
+  manualReasonPrompt.textContent = `已選擇人工評分 ${score} 分，請輸入這次判斷的原因。`;
+  manualReasonInput.value = manualOverrideScore === score ? manualOverrideReason : "";
+  manualReasonDialog.showModal();
+  setTimeout(() => manualReasonInput.focus(), 50);
+}
+
+function clearManualOverride() {
+  manualOverrideScore = null;
+  manualOverrideReason = "";
+  pendingManualScore = null;
 }
 
 function updateFolderUi() {
@@ -529,7 +555,7 @@ function summarizeRecording() {
     reason = "動作過程有疼痛，依 FMS 規則給 0 分";
   } else if (manualOverrideScore !== null) {
     finalScore = manualOverrideScore;
-    reason = `${bestRow.reason}；人工覆寫為 ${manualOverrideScore} 分，以人工判定為主`;
+    reason = `${manualReasonText()}；人工覆寫為 ${manualOverrideScore} 分，以人工判定為主`;
     manual = true;
   } else {
     bestRow = rows.reduce((best, row) => row.score > best.score ? row : best, rows[0]);
@@ -580,7 +606,7 @@ function chooseNextMovement() {
       movementIndex = i;
       currentSide = "left";
       rotaryPhase = "same";
-      manualOverrideScore = null;
+      clearManualOverride();
       return;
     }
   }
@@ -598,7 +624,7 @@ function stopRecording() {
   if (movement.id === "rotary_stability" && rotaryPhase === "same" && summary.final_score < 3 && !summary.manual_override) {
     rotaryPhase = "diagonal";
     rows = [];
-    manualOverrideScore = null;
+    clearManualOverride();
     setStatus(`${sideNames[currentSide]}同側未達 3 分，請做對側手肘碰膝蓋`);
     updateUi();
     return;
@@ -618,7 +644,7 @@ function stopRecording() {
   } else if (movement.bilateral && !sessionResults[movement.id]) {
     currentSide = currentSide === "left" ? "right" : "left";
     rotaryPhase = "same";
-    manualOverrideScore = null;
+    clearManualOverride();
     setStatus(`${movement.name} 已完成 ${Object.keys(sessionSideResults[movement.id] || {}).length}/2 側`);
   } else {
     chooseNextMovement();
@@ -662,7 +688,7 @@ function resetForNextTest(statusText = "已準備下一位受測者") {
   recordStart = 0;
   sampleCount = 0;
   painReported = false;
-  manualOverrideScore = null;
+  clearManualOverride();
   movementIndex = 0;
   currentSide = "left";
   rotaryPhase = "same";
@@ -987,7 +1013,7 @@ function renderMovementButtons() {
       movementIndex = index;
       currentSide = "left";
       rotaryPhase = "same";
-      manualOverrideScore = null;
+      clearManualOverride();
       scoreTextEl.textContent = "-";
       reasonTextEl.textContent = "";
       updateUi();
@@ -1018,7 +1044,7 @@ function onResults(results) {
     const fms = evaluateFms(results.poseLandmarks);
     const displayScore = manualOverrideScore ?? fms.score;
     scoreTextEl.textContent = String(displayScore);
-    reasonTextEl.textContent = manualOverrideScore === null ? fms.reason : `已選擇人工覆寫：${manualOverrideScore} 分`;
+    reasonTextEl.textContent = manualOverrideScore === null ? fms.reason : `${manualReasonText()}`;
     if (recording) {
       sampleCount += 1;
       rows.push({
@@ -1140,13 +1166,31 @@ sideButtons.addEventListener("click", (event) => {
   if (recording || !event.target.dataset.side) return;
   currentSide = event.target.dataset.side;
   rotaryPhase = "same";
-  manualOverrideScore = null;
+  clearManualOverride();
   updateUi();
 });
 document.querySelector(".manual").addEventListener("click", (event) => {
   if (!event.target.dataset.score) return;
   const score = Number(event.target.dataset.score);
-  manualOverrideScore = manualOverrideScore === score ? null : score;
+  if (manualOverrideScore === score) {
+    clearManualOverride();
+    updateUi();
+    return;
+  }
+  showManualReasonDialog(score);
+});
+manualReasonSaveBtn.addEventListener("click", (event) => {
+  event.preventDefault();
+  manualOverrideScore = pendingManualScore;
+  manualOverrideReason = manualReasonInput.value.trim() || `檢測員人工判定為 ${pendingManualScore} 分，未填寫補充評論`;
+  pendingManualScore = null;
+  manualReasonDialog.close();
+  setStatus(`已人工評分 ${manualOverrideScore} 分`);
+  updateUi();
+});
+manualReasonCancelBtn.addEventListener("click", () => {
+  pendingManualScore = null;
+  clearManualOverride();
   updateUi();
 });
 saveBtn.addEventListener("click", async (event) => {
