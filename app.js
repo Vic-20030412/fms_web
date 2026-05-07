@@ -851,8 +851,10 @@ function createRadarChartDataUrl(scoreRows, total, radarStats) {
     };
   }
 
-  function drawSeries(values, color, fillColor, lineWidth = 4) {
+  function drawSeries(values, color, fillColor, lineWidth = 4, dash = []) {
     if (!hasSeries(values)) return;
+    chartCtx.save();
+    chartCtx.setLineDash(dash);
     chartCtx.beginPath();
     values.forEach((score, index) => {
       const point = pointFor(Number.isFinite(score) ? score : 0, index);
@@ -878,6 +880,7 @@ function createRadarChartDataUrl(scoreRows, total, radarStats) {
       chartCtx.lineWidth = 2;
       chartCtx.stroke();
     });
+    chartCtx.restore();
   }
 
   function drawLegendItem(x, y, color, text) {
@@ -940,9 +943,9 @@ function createRadarChartDataUrl(scoreRows, total, radarStats) {
     chartCtx.fillText(`${currentScores[index]}分`, labelX, labelY + 30);
   });
 
-  drawSeries(folderAverage, "#2563eb", null, 4);
-  drawSeries(subjectAverage, "#f59e0b", null, 4);
   drawSeries(currentScores, "#087f5b", "rgba(8, 127, 91, 0.18)", 5);
+  drawSeries(folderAverage, "#2563eb", null, 4, [12, 8]);
+  drawSeries(subjectAverage, "#f59e0b", null, 4, [5, 7]);
   drawLegendItem(190, 835, "#2563eb", "檢測資料夾平均");
   drawLegendItem(190, 870, "#f59e0b", "此受測者過去平均");
   drawLegendItem(520, 835, "#087f5b", "本次分數");
