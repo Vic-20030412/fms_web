@@ -81,6 +81,7 @@ let cameraStream = null;
 let pendingDownloadUrl = null;
 let pendingExcelBlob = null;
 let pendingExcelFileName = "";
+let pendingScoreSummaryJson = "";
 let desiredZoom = 1;
 let cloudFolderName = localStorage.getItem("fmsCloudFolderName") || "";
 let selectedSubject = JSON.parse(localStorage.getItem("fmsSelectedSubject") || "null");
@@ -682,6 +683,60 @@ function sanitizeName(name) {
   return (name || "FMS測驗").trim().replace(/[\\/:*?"<>|]/g, "_") || "FMS測驗";
 }
 
+function scoreSummaryFromRows(scoreRows, total, testName) {
+  const scores = {};
+  scoreRows.forEach((row) => {
+    scores[row.動作名稱] = Number(row.最後分數) || 0;
+  });
+  return {
+    type: "fms_score_summary",
+    version: 1,
+    folderName: cloudFolderName || "未設定",
+    subjectName: selectedSubject?.name || testName,
+    testName,
+    createdAt: new Date().toISOString(),
+    total,
+    scores,
+  };
+}
+
+async function fetchRadarStats() {
+  if (!cloudFolderName) return null;
+  try {
+    const data = await jsonp("listStats", {
+      folderName: cloudFolderName,
+      subjectName: selectedSubject?.name || "",
+    });
+    return data.success ? data : null;
+  } catch (error) {
+    console.warn("Radar stats unavailable.", error);
+    return null;
+  }
+}
+
+function includeCurrentInFolderAverage(radarStats, scoreSummary) {
+  if (!radarStats || !scoreSummary?.scores) return radarStats;
+  const previous = radarStats.folderAverage || { count: 0, scores: {} };
+  const previousCount = Number(previous.count) || 0;
+  const scores = { ...previous.scores };
+
+  Object.entries(scoreSummary.scores).forEach(([movementName, currentScore]) => {
+    const previousScore = Number(previous.scores?.[movementName]);
+    const current = Number(currentScore) || 0;
+    scores[movementName] = Number.isFinite(previousScore)
+      ? Math.round(((previousScore * previousCount + current) / (previousCount + 1)) * 100) / 100
+      : current;
+  });
+
+  return {
+    ...radarStats,
+    folderAverage: {
+      count: previousCount + 1,
+      scores,
+    },
+  };
+}
+
 function resetForNextTest(statusText = "已準備下一位受測者") {
   recording = false;
   rows = [];
@@ -707,6 +762,7 @@ function resetForNextTest(statusText = "已準備下一位受測者") {
   }
   pendingExcelBlob = null;
   pendingExcelFileName = "";
+  pendingScoreSummaryJson = "";
   cloudUploadBtn.disabled = false;
   cloudUploadBtn.textContent = "上傳到 Google Drive";
   updateSubjectUi();
@@ -751,6 +807,7 @@ async function uploadExcelToGoogleDrive() {
       fileName: pendingExcelFileName,
       mimeType: pendingExcelBlob.type,
       base64,
+      scoresJson: pendingScoreSummaryJson,
     });
     cloudUploadBtn.textContent = "確認中...";
     const confirmed = await waitForUploadedFile(cloudFolderName, selectedSubject?.name || "", pendingExcelFileName);
@@ -766,7 +823,7 @@ async function uploadExcelToGoogleDrive() {
   }
 }
 
-function createRadarChartDataUrl(scoreRows, total) {
+function createRadarChartDataUrl(scoreRows, total, radarStats) {
   const size = 900;
   const canvasEl = document.createElement("canvas");
   canvasEl.width = size;
@@ -777,16 +834,75 @@ function createRadarChartDataUrl(scoreRows, total) {
   const radius = 250;
   const maxScore = 3;
   const labels = scoreRows.map((row) => row.動作名稱);
-  const scores = scoreRows.map((row) => Number(row.最後分數) || 0);
+  const currentScores = scoreRows.map((row) => Number(row.最後分數) || 0);
+  const folderAverage = labels.map((label) => Number(radarStats?.folderAverage?.scores?.[label] ?? NaN));
+  const subjectAverage = labels.map((label) => Number(radarStats?.subjectAverage?.scores?.[label] ?? NaN));
+
+  function hasSeries(values) {
+    return values.some((value) => Number.isFinite(value));
+  }
+
+  function pointFor(score, index) {
+    const angle = -Math.PI / 2 + index * 2 * Math.PI / labels.length;
+    const pointRadius = radius * ((Number.isFinite(score) ? score : 0) / maxScore);
+    return {
+      x: centerX + Math.cos(angle) * pointRadius,
+      y: centerY + Math.sin(angle) * pointRadius,
+    };
+  }
+
+  function drawSeries(values, color, fillColor, lineWidth = 4) {
+    if (!hasSeries(values)) return;
+    chartCtx.beginPath();
+    values.forEach((score, index) => {
+      const point = pointFor(Number.isFinite(score) ? score : 0, index);
+      if (index === 0) chartCtx.moveTo(point.x, point.y);
+      else chartCtx.lineTo(point.x, point.y);
+    });
+    chartCtx.closePath();
+    if (fillColor) {
+      chartCtx.fillStyle = fillColor;
+      chartCtx.fill();
+    }
+    chartCtx.strokeStyle = color;
+    chartCtx.lineWidth = lineWidth;
+    chartCtx.stroke();
+    values.forEach((score, index) => {
+      if (!Number.isFinite(score)) return;
+      const point = pointFor(score, index);
+      chartCtx.beginPath();
+      chartCtx.arc(point.x, point.y, 6, 0, 2 * Math.PI);
+      chartCtx.fillStyle = color;
+      chartCtx.fill();
+      chartCtx.strokeStyle = "#ffffff";
+      chartCtx.lineWidth = 2;
+      chartCtx.stroke();
+    });
+  }
+
+  function drawLegendItem(x, y, color, text) {
+    chartCtx.beginPath();
+    chartCtx.moveTo(x, y);
+    chartCtx.lineTo(x + 44, y);
+    chartCtx.strokeStyle = color;
+    chartCtx.lineWidth = 5;
+    chartCtx.stroke();
+    chartCtx.fillStyle = "#111827";
+    chartCtx.font = "22px -apple-system, BlinkMacSystemFont, 'PingFang TC', sans-serif";
+    chartCtx.textAlign = "left";
+    chartCtx.fillText(text, x + 56, y + 8);
+  }
 
   chartCtx.fillStyle = "#ffffff";
   chartCtx.fillRect(0, 0, size, size);
   chartCtx.fillStyle = "#111827";
   chartCtx.font = "700 34px -apple-system, BlinkMacSystemFont, 'PingFang TC', sans-serif";
   chartCtx.textAlign = "center";
-  chartCtx.fillText("FMS 七項分數雷達圖", centerX, 64);
+  chartCtx.fillText("FMS 七項分數雷達圖", centerX, 58);
   chartCtx.font = "24px -apple-system, BlinkMacSystemFont, 'PingFang TC', sans-serif";
-  chartCtx.fillText(`總分：${total} / 21`, centerX, 104);
+  chartCtx.fillText(`本次總分：${total} / 21`, centerX, 94);
+  chartCtx.font = "20px -apple-system, BlinkMacSystemFont, 'PingFang TC', sans-serif";
+  chartCtx.fillText(`資料夾平均樣本：${radarStats?.folderAverage?.count || 0}；受測者過去樣本：${radarStats?.subjectAverage?.count || 0}`, centerX, 124);
 
   for (let level = 1; level <= maxScore; level += 1) {
     const levelRadius = radius * (level / maxScore);
@@ -816,44 +932,20 @@ function createRadarChartDataUrl(scoreRows, total) {
     chartCtx.strokeStyle = "#e5e7eb";
     chartCtx.lineWidth = 1;
     chartCtx.stroke();
-
     chartCtx.fillStyle = "#111827";
     chartCtx.font = "22px -apple-system, BlinkMacSystemFont, 'PingFang TC', sans-serif";
     chartCtx.textAlign = labelX < centerX - 20 ? "right" : labelX > centerX + 20 ? "left" : "center";
     chartCtx.fillText(label, labelX, labelY);
     chartCtx.font = "700 24px -apple-system, BlinkMacSystemFont, 'PingFang TC', sans-serif";
-    chartCtx.fillText(`${scores[index]}分`, labelX, labelY + 30);
+    chartCtx.fillText(`${currentScores[index]}分`, labelX, labelY + 30);
   });
 
-  chartCtx.beginPath();
-  scores.forEach((score, index) => {
-    const angle = -Math.PI / 2 + index * 2 * Math.PI / scores.length;
-    const pointRadius = radius * (score / maxScore);
-    const x = centerX + Math.cos(angle) * pointRadius;
-    const y = centerY + Math.sin(angle) * pointRadius;
-    if (index === 0) chartCtx.moveTo(x, y);
-    else chartCtx.lineTo(x, y);
-  });
-  chartCtx.closePath();
-  chartCtx.fillStyle = "rgba(8, 127, 91, 0.24)";
-  chartCtx.strokeStyle = "#087f5b";
-  chartCtx.lineWidth = 5;
-  chartCtx.fill();
-  chartCtx.stroke();
-
-  scores.forEach((score, index) => {
-    const angle = -Math.PI / 2 + index * 2 * Math.PI / scores.length;
-    const pointRadius = radius * (score / maxScore);
-    const x = centerX + Math.cos(angle) * pointRadius;
-    const y = centerY + Math.sin(angle) * pointRadius;
-    chartCtx.beginPath();
-    chartCtx.arc(x, y, 7, 0, 2 * Math.PI);
-    chartCtx.fillStyle = "#087f5b";
-    chartCtx.fill();
-    chartCtx.strokeStyle = "#ffffff";
-    chartCtx.lineWidth = 3;
-    chartCtx.stroke();
-  });
+  drawSeries(folderAverage, "#2563eb", null, 4);
+  drawSeries(subjectAverage, "#f59e0b", null, 4);
+  drawSeries(currentScores, "#087f5b", "rgba(8, 127, 91, 0.18)", 5);
+  drawLegendItem(190, 835, "#2563eb", "檢測資料夾平均");
+  drawLegendItem(190, 870, "#f59e0b", "此受測者過去平均");
+  drawLegendItem(520, 835, "#087f5b", "本次分數");
 
   return canvasEl.toDataURL("image/png");
 }
@@ -893,6 +985,9 @@ async function saveWorkbook(testName) {
     FMS總分: total,
   });
   const scoreRows = rowsOut.slice(0, movements.length);
+  const scoreSummary = scoreSummaryFromRows(scoreRows, total, testName);
+  pendingScoreSummaryJson = JSON.stringify(scoreSummary);
+  const radarStats = includeCurrentInFolderAverage(await fetchRadarStats(), scoreSummary);
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "FMS 功能性動作篩檢";
   workbook.created = new Date();
@@ -960,14 +1055,23 @@ async function saveWorkbook(testName) {
   radarSheet.getCell("A2").value = `受測者：${selectedSubject?.name || testName}`;
   radarSheet.getCell("A3").value = `測驗資料夾：${cloudFolderName || "未設定"}`;
   radarSheet.getCell("A4").value = `總分：${total} / 21`;
+  radarSheet.getCell("A5").value = `檢測資料夾平均樣本數：${radarStats?.folderAverage?.count || 0}`;
+  radarSheet.getCell("A6").value = `此受測者過去樣本數：${radarStats?.subjectAverage?.count || 0}`;
   radarSheet.addRow([]);
-  radarSheet.addRow(["動作名稱", "分數"]);
-  scoreRows.forEach((row) => radarSheet.addRow([row.動作名稱, row.最後分數]));
+  radarSheet.addRow(["動作名稱", "本次分數", "檢測資料夾平均", "此受測者過去平均"]);
+  scoreRows.forEach((row) => radarSheet.addRow([
+    row.動作名稱,
+    row.最後分數,
+    radarStats?.folderAverage?.scores?.[row.動作名稱] ?? "",
+    radarStats?.subjectAverage?.scores?.[row.動作名稱] ?? "",
+  ]));
   radarSheet.getColumn(1).width = 22;
-  radarSheet.getColumn(2).width = 10;
-  radarSheet.getRow(6).font = { bold: true };
+  radarSheet.getColumn(2).width = 12;
+  radarSheet.getColumn(3).width = 18;
+  radarSheet.getColumn(4).width = 20;
+  radarSheet.getRow(8).font = { bold: true };
   const radarImage = workbook.addImage({
-    base64: createRadarChartDataUrl(scoreRows, total),
+    base64: createRadarChartDataUrl(scoreRows, total, radarStats),
     extension: "png",
   });
   radarSheet.addImage(radarImage, {
