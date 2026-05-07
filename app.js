@@ -859,18 +859,20 @@ function createRadarChartDataUrl(scoreRows, total) {
 }
 
 async function saveWorkbook(testName) {
+  const infoRows = [
+    ["測驗資料夾", cloudFolderName || "未設定"],
+    ["受測者姓名", selectedSubject?.name || testName],
+    ["性別", selectedSubject?.gender || ""],
+    ["年齡", selectedSubject?.age || ""],
+    ["運動習慣", selectedSubject?.exerciseHabit || ""],
+    ["測驗名稱", testName],
+  ];
   const rowsOut = [];
   let total = 0;
   for (const movement of movements) {
     const item = sessionResults[movement.id];
     total += item.final_score;
     rowsOut.push({
-      測驗資料夾: cloudFolderName || "未設定",
-      受測者姓名: selectedSubject?.name || testName,
-      性別: selectedSubject?.gender || "",
-      年齡: selectedSubject?.age || "",
-      運動習慣: selectedSubject?.exerciseHabit || "",
-      測驗名稱: testName,
       動作名稱: item.movement_name,
       最後分數: item.final_score,
       左側分數: item.left_score ?? "",
@@ -886,12 +888,6 @@ async function saveWorkbook(testName) {
     });
   }
   rowsOut.push({
-    測驗資料夾: cloudFolderName || "未設定",
-    受測者姓名: selectedSubject?.name || testName,
-    性別: selectedSubject?.gender || "",
-    年齡: selectedSubject?.age || "",
-    運動習慣: selectedSubject?.exerciseHabit || "",
-    測驗名稱: testName,
     動作名稱: "總分",
     原因: "七個 FMS 動作分數加總",
     FMS總分: total,
@@ -901,30 +897,59 @@ async function saveWorkbook(testName) {
   workbook.creator = "FMS 功能性動作篩檢";
   workbook.created = new Date();
   const worksheet = workbook.addWorksheet("FMS分數");
-  worksheet.columns = [
-    { header: "測驗資料夾", key: "測驗資料夾", width: 22 },
-    { header: "受測者姓名", key: "受測者姓名", width: 16 },
-    { header: "性別", key: "性別", width: 8 },
-    { header: "年齡", key: "年齡", width: 8 },
-    { header: "運動習慣", key: "運動習慣", width: 28 },
-    { header: "測驗名稱", key: "測驗名稱", width: 22 },
-    { header: "動作名稱", key: "動作名稱", width: 18 },
-    { header: "最後分數", key: "最後分數", width: 10 },
-    { header: "左側分數", key: "左側分數", width: 10 },
-    { header: "右側分數", key: "右側分數", width: 10 },
-    { header: "原因", key: "原因", width: 70 },
-    { header: "人工覆寫", key: "人工覆寫", width: 10 },
-    { header: "自動辨識分數", key: "自動辨識分數", width: 14 },
-    { header: "總擷取筆數", key: "總擷取筆數", width: 12 },
-    { header: "測試秒數", key: "測試秒數", width: 12 },
-    { header: "平均擷取FPS", key: "平均擷取FPS", width: 14 },
-    { header: "採用分數", key: "採用分數", width: 10 },
-    { header: "FMS總分", key: "FMS總分", width: 10 },
-  ];
-  rowsOut.forEach((row) => worksheet.addRow(row));
+  worksheet.addRow(["基本資料", ""]);
   worksheet.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
   worksheet.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF087F5B" } };
-  worksheet.getColumn("原因").alignment = { wrapText: true, vertical: "top" };
+  infoRows.forEach((row) => worksheet.addRow(row));
+  worksheet.addRow([]);
+  const headerRowIndex = infoRows.length + 3;
+  worksheet.addRow([
+    "動作名稱",
+    "最後分數",
+    "左側分數",
+    "右側分數",
+    "原因",
+    "人工覆寫",
+    "自動辨識分數",
+    "總擷取筆數",
+    "測試秒數",
+    "平均擷取FPS",
+    "採用分數",
+    "FMS總分",
+  ]);
+  rowsOut.forEach((row) => {
+    worksheet.addRow([
+      row.動作名稱 ?? "",
+      row.最後分數 ?? "",
+      row.左側分數 ?? "",
+      row.右側分數 ?? "",
+      row.原因 ?? "",
+      row.人工覆寫 ?? "",
+      row.自動辨識分數 ?? "",
+      row.總擷取筆數 ?? "",
+      row.測試秒數 ?? "",
+      row.平均擷取FPS ?? "",
+      row.採用分數 ?? "",
+      row.FMS總分 ?? "",
+    ]);
+  });
+  worksheet.columns = [
+    { width: 18 },
+    { width: 12 },
+    { width: 10 },
+    { width: 10 },
+    { width: 70 },
+    { width: 10 },
+    { width: 14 },
+    { width: 12 },
+    { width: 12 },
+    { width: 14 },
+    { width: 10 },
+    { width: 10 },
+  ];
+  worksheet.getRow(headerRowIndex).font = { bold: true, color: { argb: "FFFFFFFF" } };
+  worksheet.getRow(headerRowIndex).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF087F5B" } };
+  worksheet.getColumn(5).alignment = { wrapText: true, vertical: "top" };
   worksheet.eachRow((row) => {
     row.alignment = { vertical: "top" };
   });
